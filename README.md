@@ -73,18 +73,28 @@ This project focuses on building a multi-site enterprise network and setting up 
 
 ## Deployment Procedure
 
-1. Clone the repository and move into the project directory.
+1. Install the required tooling.
+
+   Containerlab needs Docker and the `containerlab` CLI on the host. On supported Linux distributions, the quickest path is:
+
+   ```bash
+   curl -sL https://containerlab.dev/setup | sudo -E bash -s "all"
+   ```
+
+   If you prefer a package install, follow the official guide: https://containerlab.dev/install/
+
+2. Clone the repository and move into the project directory.
 
    ```bash
    git clone https://github.com/yfgrepcat/enterprise-network.git
    cd enterprise-network
    ```
 
-2. Optional: install the Containerlab VS Code extension if you want easier lab management.
+3. Optional: install the Containerlab VS Code extension if you want easier lab management.
 
    See the official guide: https://containerlab.dev/manual/vsc-extension/
 
-3. Deploy the lab environment with Containerlab.
+4. Deploy the lab environment with Containerlab.
 
    Use the CLI if Containerlab is already installed on your system:
 
@@ -99,3 +109,17 @@ This project focuses on building a multi-site enterprise network and setting up 
    - Open the Containerlab extension in the VS Code sidebar.
    - Select the `clab-topology.yaml` topology file.
    - Click `Deploy Lab` to start the environment.
+
+## DNS Proof Of Concept
+
+For a minimal DNS-only validation lab, use the separate proof-of-concept topology.
+
+Run these commands in order:
+
+```bash
+sudo containerlab destroy --topo poc-dns.clab.yaml
+sudo containerlab deploy --topo poc-dns.clab.yaml
+sudo docker exec -it clab-dns-poc-client dig @172.16.10.53 host.poc.lab
+```
+
+The POC uses the separate DNS folder under [poc-dns/dns](poc-dns/dns) and a simple client subnet on `172.16.10.0/24`.

@@ -1,0 +1,120 @@
+// Architecture diagram for Enterprise AS (Graphviz DOT)
+// Render with: dot -Tpng architecture.dot -o architecture.png
+
+digraph Enterprise {
+  graph [rankdir=LR, fontsize=10];
+  node [fontsize=10];
+
+  // AS cluster
+  subgraph cluster_AS12 {
+    label="AS12 (your AS) — 120.0.162.0/20";
+    color=blue;
+
+    // Core routers (OSPF)
+    subgraph cluster_core {
+      label="Core Routers (OSPF)";
+      style=filled; color=lightgrey;
+      P1 [label="P1\nCore Router", shape=box, style=filled, fillcolor=lightblue];
+      P2 [label="P2\nCore Router", shape=box, style=filled, fillcolor=lightblue];
+      P3 [label="P3\nCore Router", shape=box, style=filled, fillcolor=lightblue];
+      P4 [label="P4\nCore Router", shape=box, style=filled, fillcolor=lightblue];
+    }
+
+    // Edge routers (eBGP peers)
+    subgraph cluster_edge {
+      label="Edge Routers (eBGP)";
+      PE_isp [label="PE-isp\nEdge Router", shape=box, style=filled, fillcolor=lightcyan];
+      PE_nomad [label="PE-nomad\nEdge Router", shape=box, style=filled, fillcolor=lightcyan];
+      PE_site [label="PE-site\nEdge Router", shape=box, style=filled, fillcolor=lightcyan];
+    }
+
+    // Primary enterprise site
+    subgraph cluster_primary {
+      label="Primary Site (in AS12)";
+      style=filled; color=lightgreen;
+      E0_router [label="Site Router\n(connected to P1)", shape=box];
+      E0_dns [label="DNS/DHCP\n(Team1)", shape=cylinder, style=filled, fillcolor=yellow];
+      E0_voip [label="VoIP Server\n(Team2)", shape=cylinder, style=filled, fillcolor=orange];
+      E0_web [label="Web Server\n(Team2)", shape=cylinder, style=filled, fillcolor=gold];
+      E0_users [label="User VLANs\n(Staff, Phones)", shape=folder];
+    }
+
+    // Secondary enterprise site (hosted in another AS but managed by next group)
+    subgraph cluster_secondary {
+      label="Secondary Site (other AS)";
+      style=filled; color=lightyellow;
+      E1_router [label="Remote Site Router\n(connected to other AS)", shape=box];
+      E1_users [label="Remote User VLANs", shape=folder];
+    }
+
+    // Residential customers (plug into edge networks)
+    res0 [label="Residential 0\n(Home GW)", shape=box, style=filled, fillcolor=white];
+    res2 [label="Residential 2\n(Home GW)", shape=box, style=filled, fillcolor=white];
+
+    // Bridges representing access segments
+    net_isp [label="net-isp\n(access bridge)", shape=ellipse];
+    net_nomad [label="net-nomad\n(access bridge)", shape=ellipse];
+    net_site [label="net-site\n(access bridge)", shape=ellipse];
+  }
+
+  // External AS (other group) and general Internet
+  AS13 [label="AS13 (Group 3)\nExternal AS / Partner", shape=box3d, style=filled, fillcolor=lightgray];
+  Internet [label="Internet / Transit (optional)", shape=cloud];
+
+  // Core interconnect (OSPF links) - undirected style
+  P1 -> P2 [label="10.1.12.0/31\nOSPF", dir=none];
+  P1 -> P3 [label="10.1.13.0/31\nOSPF", dir=none];
+  P1 -> P4 [label="10.1.14.0/31\nOSPF", dir=none];
+  P2 -> P3 [label="10.1.23.0/31\nOSPF", dir=none];
+  P2 -> P4 [label="10.1.24.0/31\nOSPF", dir=none];
+  P3 -> P4 [label="10.1.34.0/31\nOSPF", dir=none];
+
+  // Edge uplinks from core to PE
+  P1 -> PE_isp [label="10.2.1.0/31\ninternal", dir=none];
+  P2 -> PE_nomad [label="10.2.2.0/31\ninternal", dir=none];
+  P3 -> PE_site [label="10.2.3.0/31\ninternal", dir=none];
+
+  // PE <-> access bridges (host-facing)
+  PE_isp -> net_isp [label="access / customer segment", dir=none];
+  PE_nomad -> net_nomad [label="access / customer segment", dir=none];
+  PE_site -> net_site [label="access / customer segment", dir=none];
+
+  // Attach services and hosts to primary site
+  P1 -> E0_router [label="site uplink", dir=none];
+  E0_router -> E0_dns [label="DNS/DHCP server (Team1)", dir=none];
+  E0_router -> E0_voip [label="VoIP server (Team2)", dir=none];
+  E0_router -> E0_web [label="Web server (Team2)", dir=none];
+  E0_router -> E0_users [label="LAN / VLANs", dir=none];
+
+  // Secondary site connection (VPN between E0 and E1)
+  E0_router -> E1_router [label="Site-to-site VPN (WireGuard/IPsec)\n(Tunnel for site replication)", style=dashed, dir=none];
+
+  // Residential hosts connect to access bridges
+  res0 -> net_isp [label="Residential (DHCP client)\nzero-config gateway", dir=none];
+  res2 -> net_nomad [label="Residential (DHCP client)\nzero-config gateway", dir=none];
+
+  // DNS/DHCP reachability: residential -> dns server
+  res0 -> E0_dns [label="DHCP lease / DNS queries", style=dotted, dir=none];
+  res2 -> E0_dns [label="DHCP lease / DNS queries", style=dotted, dir=none];
+
+  // eBGP peering from PEs to external AS and Internet
+  PE_isp -> AS13 [label="eBGP peering\n(advertise /20 prefixes)", color=purple];
+  PE_isp -> Internet [label="transit (optional)", color=gray];
+
+  // Where to configure what (legend)
+  legend [label=<
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+      <TR><TD><B>Component</B></TD><TD><B>Configured by</B></TD><TD><B>Notes</B></TD></TR>
+      <TR><TD>Core routers (P1..P4)</TD><TD>Team4</TD><TD>OSPF, internal routing, QoS</TD></TR>
+      <TR><TD>Edge routers (PE-*)</TD><TD>AS interconnection manager</TD><TD>eBGP peering, prefix filters</TD></TR>
+      <TR><TD>DNS/DHCP</TD><TD>Team1</TD><TD>Authoritative zones, DHCP pools for residential &amp; enterprise</TD></TR>
+      <TR><TD>VoIP / Web</TD><TD>Team2</TD><TD>VoIP requires DSCP marking + QoS</TD></TR>
+      <TR><TD>VPN (site-to-site)</TD><TD>Team3</TD><TD>WireGuard or IPsec; route or redistribute into OSPF/BGP</TD></TR>
+      <TR><TD>Residential gateways</TD><TD>Group (zero-config)</TD><TD>DHCP client; auto-VPN bootstrap</TD></TR>
+    </TABLE>
+  >, shape=plain];
+
+  // visual spacing
+  { rank = same; P1; P2; P3; P4 }
+  { rank = same; PE_isp; PE_nomad; PE_site }
+}

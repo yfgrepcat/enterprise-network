@@ -20,6 +20,8 @@ topology:
     nokia_srlinux:
       image: ghcr.io/nokia/srlinux:24.10.7
       type: ixr-d2
+    linux:
+      image: ubuntu:22.04
 
   nodes:
     P1:
@@ -43,6 +45,10 @@ topology:
         set / interface ethernet-1/10 subinterface 0 admin-state enable
         set / interface ethernet-1/10 subinterface 0 ipv4 admin-state enable
         set / interface ethernet-1/10 subinterface 0 ipv4 address 10.2.1.0/31
+        set / interface ethernet-1/11 admin-state enable
+        set / interface ethernet-1/11 subinterface 0 admin-state enable
+        set / interface ethernet-1/11 subinterface 0 ipv4 admin-state enable
+        set / interface ethernet-1/11 subinterface 0 ipv4 address 120.0.164.1/24
 
     P2:
       kind: nokia_srlinux
@@ -136,12 +142,27 @@ topology:
         set / interface ethernet-1/1 subinterface 0 ipv4 admin-state enable
         set / interface ethernet-1/1 subinterface 0 ipv4 address 10.2.3.1/31
 
+    DHCP1:
+      kind: linux
+      binds:
+        - ./dhcp:/opt/dhcp:ro
+      cmd: /bin/bash -lc "bash /opt/dhcp/setup-dhcp.sh"
+
+    TESTCLIENT:
+      kind: linux
+      image: ubuntu:22.04
+      cmd: /bin/bash -lc "sleep infinity"
+      exec:
+        - bash -lc "DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y isc-dhcp-client iproute2 && dhclient -v eth1"
+
     # Host bridges
     net-isp:
       kind: bridge
     net-nomad:
       kind: bridge
     net-site:
+      kind: bridge
+    svc-net:
       kind: bridge
 
   links:
@@ -157,6 +178,11 @@ topology:
     - endpoints: ["P1:e1-10", "PE-isp:e1-1"]    # 10.2.1.0/31
     - endpoints: ["P2:e1-10", "PE-nomad:e1-1"]  # 10.2.2.0/31
     - endpoints: ["P3:e1-10", "PE-site:e1-1"]   # 10.2.3.0/31
+
+    # DHCP service segment
+    - endpoints: ["P1:e1-11", "svc-net:p1-port"]
+    - endpoints: ["DHCP1:eth1", "svc-net:dhcp-port"]
+    - endpoints: ["TESTCLIENT:eth1", "svc-net:client-port"]
 
     # PE southbound to host bridges
     - endpoints: ["PE-isp:e1-2",   "net-isp:pe-isp-port"]

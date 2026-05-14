@@ -99,3 +99,16 @@ This project focuses on building a multi-site enterprise network and setting up 
    - Open the Containerlab extension in the VS Code sidebar.
    - Select the `clab-topology.yaml` topology file.
    - Click `Deploy Lab` to start the environment.
+
+## OpenVPN Site-to-Site (PE-nomad <-> PE-site)
+
+The topology now includes two Linux OpenVPN gateways:
+
+- `ovpn-nomad` on `net-nomad` (10.12.10.2/24)
+- `ovpn-site` on `net-site` (10.12.20.2/24)
+
+Each PE has a southbound LAN IP and a static route through its local OpenVPN gateway:
+
+- `PE-nomad` -> `10.12.10.1/24`, route to `10.12.20.0/24` via `10.12.10.2`
+- `PE-site` -> `10.12.20.1/24`, route to `10.12.10.0/24` via `10.12.20.2`
+
